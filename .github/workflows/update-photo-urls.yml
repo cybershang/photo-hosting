@@ -1,0 +1,51 @@
+name: Update Photo URLs
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+
+jobs:
+  update-urls:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v2
+
+    - name: Install and Configure B2 Command Line Tool
+      run: |
+        wget https://github.com/Backblaze/B2_Command_Line_Tool/releases/latest/download/b2-linux
+        chmod +x b2-linux
+        sudo mv b2-linux /usr/local/bin/b2-linux
+        b2-linux authorize-account ${{ secrets.B2_APPLICATION_KEY_ID }} ${{ secrets.B2_APPLICATION_KEY }} > /dev/null 2>&1
+
+
+    - name: Generate URLs File
+      run: |
+        BUCKET_NAME="${{ secrets.BUCKET_NAME}}"
+        OUTPUT_FILE="photo-urls.txt"
+        > $OUTPUT_FILE
+        file_names=$(b2-linux ls $BUCKET_NAME)
+        if [ $? -ne 0 ]; then
+          echo "Failed to list file names."
+          exit 1
+        fi
+        for file_name in $file_names; do
+          file_url=$(b2-linux get-url b2://$BUCKET_NAME/$file_name)
+          if [ $? -eq 0 ]; then
+            echo "$file_url" >> $OUTPUT_FILE
+          else
+            echo "Failed to get URL: $file_name"
+          fi
+        done
+
+    - name: Commit and Push
+      run: |
+        git config --global user.name 'GitHub Actions'
+        git config --global user.email 'actions@github.com'
+        git add photo-urls.txt
+        git commit -m "Update photo URLs" || echo "No changes to commit"
+        git push
