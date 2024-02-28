@@ -41,6 +41,9 @@ jobs:
             echo "Failed to get URL: $file_name"
           fi
         done
+        # Origin Backblaze URL proxied by Cloudflare
+        sed -i 's/https:\/\/.*\/file/https:\/\/photos.yingjie.space\/file/g' photo-urls.txt
+
 
     - name: Commit and Push
       run: |
